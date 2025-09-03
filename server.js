@@ -1,28 +1,35 @@
 const express = require('express');
-const { PeerServer } = require('peer');
 const cors = require('cors');
+const { ExpressPeerServer } = require('peer'); // Importa a versão para Express
 
+// Criação da aplicação Express
 const app = express();
 const port = process.env.PORT || 9000;
 
-// Habilita o CORS para todas as requisições.
-// Isso diz ao navegador que seu servidor permite conexões de outros domínios (como andrealfieri.com.br)
+// Habilita o CORS para todas as requisições
 app.use(cors());
 
 // Rota de "saúde" para verificar se o servidor está online.
-app.get('/', (req, res) => {
-  res.send('Servidor de sinalização está ativo.');
+// Esta rota agora irá funcionar.
+app.get('/', (req, res, next) => {
+    res.send('Servidor de sinalização PeerJS está ativo.');
 });
 
-// Inicia o servidor HTTP.
+// Inicia o servidor HTTP para ouvir na porta especificada.
 const server = app.listen(port, () => {
-  console.log(`Servidor HTTP rodando na porta ${port}`);
+    console.log(`Servidor HTTP rodando na porta ${port}`);
 });
 
-// Inicia o PeerServer e o anexa ao nosso servidor HTTP existente.
-const peerServer = PeerServer({
-  server: server, // Anexa ao servidor Express
-  path: '/myapp'  // O mesmo caminho que o cliente espera
+// Cria uma instância do PeerServer para Express.
+const peerServer = ExpressPeerServer(server, {
+    path: '/myapp' // O PeerServer só vai lidar com requisições neste caminho
 });
 
-console.log(`Servidor PeerJS escutando em ${peerServer.path}`);
+// Diz para a aplicação Express usar o PeerServer.
+// Todas as requisições para /myapp/* serão gerenciadas pelo PeerServer.
+app.use(peerServer);
+
+// Log para confirmar que o PeerServer está escutando.
+peerServer.on('connection', (client) => {
+    console.log(`Cliente conectado: ${client.getId()}`);
+});
