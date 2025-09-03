@@ -1,36 +1,51 @@
+// server.js
 const express = require('express');
 const { ExpressPeerServer } = require('peer');
-const cors = require('cors');
 
 const app = express();
-const port = process.env.PORT || 9000;
+const PORT = process.env.PORT || 9000;
 
-// CORS global (inclui /peerjs)
-app.use(cors());
-
-// Healthcheck
-app.get('/', (req, res) => {
-  res.send('Servidor de sinalização PeerJS está ativo e funcionando.');
+// CORS para todo o app (inclui 404 também)
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  // Libere seu domínio (e subdomínios 'www') — pode usar '*' para teste
+  const allowed = ['https://andrealfieri.com.br', 'https://www.andrealfieri.com.br'];
+  if (origin && allowed.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*'); // pode apertar depois
+  }
+  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  next();
 });
+
+app.options('/*', (_req, res) => res.sendStatus(204)); // preflight
+
+app.get('/', (_req, res) => res.send('PeerJS signaling OK'));
 
 // Sobe HTTP
-const server = app.listen(port, () => {
-  console.log(`Servidor HTTP rodando na porta ${port}`);
+const server = app.listen(PORT, () => {
+  console.log(`HTTP on ${PORT}`);
 });
 
-// Cria PeerServer. OBS: path aqui é RELATIVO ao mount point
+// PeerServer montado em /peerjs com path interno /live
 const peerServer = ExpressPeerServer(server, {
   debug: true,
-  path: '/',    // path interno do peer sob o mount point
+  path: '/live',
+  proxied: true, // Render/proxies
+  corsOptions: {
+    origin: ['https://andrealfieri.com.br', 'https://www.andrealfieri.com.br'],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type']
+  }
 });
 
-// Monta em /peerjs => endpoints ficam /peerjs/id, /peerjs/peerjs/..., etc.
 app.use('/peerjs', peerServer);
 
-// Logs
 peerServer.on('connection', (client) => {
-  console.log(`[LOG] Cliente conectado: ${client.getId()}`);
+  console.log(`[peer] connected: ${client.getId()}`);
 });
 peerServer.on('disconnect', (client) => {
-  console.log(`[LOG] Cliente desconectado: ${client.getId()}`);
+  console.log(`[peer] disconnected: ${client.getId()}`);
 });
