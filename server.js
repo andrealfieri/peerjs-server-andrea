@@ -5,36 +5,32 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 9000;
 
-// Habilita o CORS para a rota de verificação.
+// CORS global (inclui /peerjs)
 app.use(cors());
 
-// Rota de verificação para sabermos que o servidor está online.
-app.get('/', (req, res, next) => {
-    res.send('Servidor de sinalização PeerJS está ativo e funcionando.');
+// Healthcheck
+app.get('/', (req, res) => {
+  res.send('Servidor de sinalização PeerJS está ativo e funcionando.');
 });
 
-// Inicia o servidor HTTP.
+// Sobe HTTP
 const server = app.listen(port, () => {
-    console.log(`Servidor HTTP rodando na porta ${port}`);
+  console.log(`Servidor HTTP rodando na porta ${port}`);
 });
 
-// --- A CORREÇÃO DEFINITIVA ESTÁ AQUI ---
-// Criamos o PeerServer e passamos a configuração de CORS diretamente para ele.
+// Cria PeerServer. OBS: path aqui é RELATIVO ao mount point
 const peerServer = ExpressPeerServer(server, {
-    debug: true,
-    path: '/', // Opera na raiz do servidor
-    allow_origin: '*' // ESTA LINHA RESOLVE O PROBLEMA DE CORS
+  debug: true,
+  path: '/',    // path interno do peer sob o mount point
 });
-// -----------------------------------------
 
-// Monta o PeerServer para que ele gerencie as requisições de WebRTC.
-app.use('/', peerServer);
+// Monta em /peerjs => endpoints ficam /peerjs/id, /peerjs/peerjs/..., etc.
+app.use('/peerjs', peerServer);
 
-// Logs para confirmar a atividade no servidor da Render
+// Logs
 peerServer.on('connection', (client) => {
-    console.log(`[LOG] Cliente conectado: ${client.getId()}`);
+  console.log(`[LOG] Cliente conectado: ${client.getId()}`);
 });
-
 peerServer.on('disconnect', (client) => {
-    console.log(`[LOG] Cliente desconectado: ${client.getId()}`);
+  console.log(`[LOG] Cliente desconectado: ${client.getId()}`);
 });
